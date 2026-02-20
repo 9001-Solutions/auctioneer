@@ -3,8 +3,9 @@ import { config } from './config';
 import { data as auctionData } from './commands/auction';
 import { data as bidData } from './commands/bid';
 import { data as cancelData } from './commands/cancel';
+import { data as closeData } from './commands/close';
 
-const commands = [auctionData.toJSON(), bidData.toJSON(), cancelData.toJSON()];
+const commands = [auctionData.toJSON(), bidData.toJSON(), cancelData.toJSON(), closeData.toJSON()];
 const rest = new REST().setToken(config.DISCORD_TOKEN);
 
 (async () => {

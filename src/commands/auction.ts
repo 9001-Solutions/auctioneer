@@ -91,7 +91,9 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
   await interaction.deferReply();
 
   const closesAt = new Date(Date.now() + durationHours * 3600000).toISOString().replace('T', ' ').slice(0, 19);
-  const channel = interaction.channel as TextChannel;
+  const guild = interaction.guild ?? await interaction.client.guilds.fetch(interaction.guildId!);
+  const channel = (interaction.channel
+    ?? await guild.channels.fetch(interaction.channelId!)) as TextChannel;
 
   const thread = await channel.threads.create({
     name: `${type.toUpperCase()}: ${itemName}`,

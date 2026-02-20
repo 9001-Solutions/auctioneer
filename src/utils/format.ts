@@ -53,6 +53,13 @@ export function winnerEmbed(auction: Auction): EmbedBuilder {
   return embed;
 }
 
+export function cancelledEmbed(auction: Auction): EmbedBuilder {
+  return new EmbedBuilder()
+    .setTitle(`Auction Cancelled: ${auction.item_name}`)
+    .setColor(0xED4245)
+    .setDescription('This auction has been cancelled by an officer. No winner.');
+}
+
 interface TiedMember {
   name: string;
   dkp: number;

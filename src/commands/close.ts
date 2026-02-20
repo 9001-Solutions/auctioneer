@@ -1,15 +1,15 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember } from 'discord.js';
 import * as db from '../db';
 import { isOfficer } from '../utils/permissions';
-import { cancelledEmbed } from '../utils/format';
+import { closeAuction } from '../services/auctionManager';
 
 export const data = new SlashCommandBuilder()
-  .setName('cancel')
-  .setDescription('Cancel the auction in the current thread (no winner)');
+  .setName('close')
+  .setDescription('Close the auction early and announce the winner');
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!isOfficer(interaction.member as GuildMember)) {
-    await interaction.reply({ content: 'Only officers can cancel auctions.', ephemeral: true });
+    await interaction.reply({ content: 'Only officers can close auctions.', ephemeral: true });
     return;
   }
 
@@ -19,13 +19,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  db.updateAuction(auction.id, { status: 'cancelled' });
-
-  const embed = cancelledEmbed(auction);
-  await interaction.reply({ embeds: [embed] });
-
-  const thread = interaction.channel;
-  if (thread?.isThread()) {
-    await thread.setArchived(true).catch(() => {});
-  }
+  await interaction.deferReply({ ephemeral: true });
+  await closeAuction(auction, interaction.client);
+  await interaction.editReply('Auction closed.');
 }
