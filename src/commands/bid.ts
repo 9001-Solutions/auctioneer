@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type TextChannel, type GuildMember } from 'discord.js';
 import * as db from '../db';
+import { config } from '../config';
 import * as sheets from '../services/sheets';
 import { formatGil } from '../utils/format';
 
@@ -22,23 +23,32 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply({ ephemeral: true });
 
   const member = await sheets.findMember(userName);
-  const eligible = auction.type === 'dkp'
-    ? member && member.status.toLowerCase() === 'member'
-    : member && ['member', 'trial'].includes(member.status.toLowerCase());
-
-  if (!eligible) {
-    await interaction.editReply('You are not eligible to bid in this auction.');
-    return;
-  }
 
   if (auction.type === 'dkp') {
+    const dkpMember = auction.dkp_column
+      ? (await sheets.fetchMembers(auction.dkp_column)).find(m => m.name.toLowerCase() === userName.toLowerCase()) ?? null
+      : member;
+    const eligible = dkpMember && dkpMember.status.toLowerCase() === 'member';
+    if (!eligible) {
+      await interaction.editReply('You are not eligible to bid in this auction.');
+      return;
+    }
     const existing = db.getDkpBid(auction.id, userId);
     if (existing) {
       await interaction.editReply('You have already registered interest in this auction.');
       return;
     }
     db.placeBid({ auction_id: auction.id, user_id: userId, user_name: userName, amount: null });
-    await interaction.editReply('Interest registered. Good luck!');
+    const colConfig = config.DKP_COLUMNS.find(c => c.column === auction.dkp_column);
+    const label = colConfig?.label || 'DKP';
+    await interaction.editReply(`Interest registered with **${dkpMember.dkp} ${label}**. Good luck!`);
+    return;
+  }
+
+  const eligible = member && ['member', 'trial'].includes(member.status.toLowerCase());
+
+  if (!eligible) {
+    await interaction.editReply('You are not eligible to bid in this auction.');
     return;
   }
 
@@ -48,9 +58,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const minimumBid = auction.current_bid || auction.starting_bid || 0;
-  if (amount <= minimumBid) {
-    await interaction.editReply(`Your bid must exceed the current bid of **${formatGil(minimumBid)}**. Try a higher amount.`);
+  const currentBid = auction.current_bid || auction.starting_bid || 0;
+  const increment = auction.min_increment || 5000;
+  const minimumBid = currentBid + increment;
+  if (amount < minimumBid) {
+    await interaction.editReply(`Your bid must be at least **${formatGil(minimumBid)}** (current bid ${formatGil(currentBid)} + ${formatGil(increment)} increment).`);
     return;
   }
 

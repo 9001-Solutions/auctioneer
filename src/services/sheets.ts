@@ -3,13 +3,17 @@ import type { SheetMember, ResolvedBidder } from '../types';
 
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${config.SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(config.SPREADSHEET_SHEET_NAME)}`;
 
-function colToIndex(letter: string): number {
-  return letter.toUpperCase().charCodeAt(0) - 65;
+function colToIndex(col: string): number {
+  let index = 0;
+  const upper = col.toUpperCase();
+  for (let i = 0; i < upper.length; i++) {
+    index = index * 26 + (upper.charCodeAt(i) - 64);
+  }
+  return index - 1;
 }
 
 const COL_NAME = colToIndex(config.COLUMN_NAME);
 const COL_STATUS = colToIndex(config.COLUMN_STATUS);
-const COL_DKP = colToIndex(config.COLUMN_DKP);
 
 function parseCSVRow(row: string): string[] {
   const fields: string[] = [];
@@ -39,7 +43,8 @@ function parseCSVRow(row: string): string[] {
   return fields;
 }
 
-export async function fetchMembers(): Promise<SheetMember[]> {
+export async function fetchMembers(dkpColumn?: string): Promise<SheetMember[]> {
+  const colDkp = colToIndex(dkpColumn || config.DKP_COLUMNS[0].column);
   const res = await fetch(CSV_URL);
   if (!res.ok) throw new Error(`Failed to fetch spreadsheet: ${res.status}`);
   const text = await res.text();
@@ -49,7 +54,7 @@ export async function fetchMembers(): Promise<SheetMember[]> {
     return {
       name: (cols[COL_NAME] || '').trim(),
       status: (cols[COL_STATUS] || '').trim(),
-      dkp: parseFloat(cols[COL_DKP]) || 0,
+      dkp: parseFloat(cols[colDkp]) || 0,
     };
   }).filter(m => m.name);
 }
@@ -60,8 +65,8 @@ export async function findMember(displayName: string): Promise<SheetMember | nul
   return members.find(m => m.name.toLowerCase() === needle) || null;
 }
 
-export async function resolveDkpBidders(bidders: { user_id: string; user_name: string }[]): Promise<ResolvedBidder[]> {
-  const members = await fetchMembers();
+export async function resolveDkpBidders(bidders: { user_id: string; user_name: string }[], dkpColumn?: string): Promise<ResolvedBidder[]> {
+  const members = await fetchMembers(dkpColumn);
   const memberMap = new Map(members.map(m => [m.name.toLowerCase(), m]));
 
   return bidders

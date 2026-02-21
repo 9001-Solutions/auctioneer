@@ -27,7 +27,8 @@ async function closeDkpAuction(auction: Auction, client: Client): Promise<void> 
 
   try {
     const resolved = await sheets.resolveDkpBidders(
-      bids.map(b => ({ user_id: b.user_id, user_name: b.user_name }))
+      bids.map(b => ({ user_id: b.user_id, user_name: b.user_name })),
+      auction.dkp_column ?? undefined,
     );
 
     const eligible = resolved.filter(m => m.status.toLowerCase() === 'member');

@@ -46,10 +46,22 @@ db.exec(`
     ON bids(auction_id, user_id) WHERE amount IS NULL;
 `);
 
+try {
+  db.exec(`ALTER TABLE auctions ADD COLUMN dkp_column TEXT`);
+} catch {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE auctions ADD COLUMN min_increment INTEGER`);
+} catch {
+  // Column already exists
+}
+
 export function createAuction(data: CreateAuctionData) {
   const stmt = db.prepare(`
-    INSERT INTO auctions (guild_id, channel_id, thread_id, message_id, type, item_name, image_url, starting_bid, current_bid, current_bidder_id, duration_hours, closes_at)
-    VALUES (@guild_id, @channel_id, @thread_id, @message_id, @type, @item_name, @image_url, @starting_bid, @current_bid, @current_bidder_id, @duration_hours, @closes_at)
+    INSERT INTO auctions (guild_id, channel_id, thread_id, message_id, type, item_name, image_url, starting_bid, current_bid, current_bidder_id, duration_hours, closes_at, dkp_column, min_increment)
+    VALUES (@guild_id, @channel_id, @thread_id, @message_id, @type, @item_name, @image_url, @starting_bid, @current_bid, @current_bidder_id, @duration_hours, @closes_at, @dkp_column, @min_increment)
   `);
   return stmt.run(data);
 }

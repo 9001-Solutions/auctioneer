@@ -1,4 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
+import { config } from '../config';
 import type { Auction } from '../types';
 
 export function formatGil(amount: number): string {
@@ -7,7 +8,14 @@ export function formatGil(amount: number): string {
 
 export function auctionEmbed(auction: Auction): EmbedBuilder {
   const closesAtUnix = Math.floor(new Date(auction.closes_at + 'Z').getTime() / 1000);
-  const typeLabel = auction.type === 'dkp' ? 'DKP (Priority)' : 'Gil (Highest Bid)';
+  let typeLabel: string;
+  if (auction.type === 'dkp') {
+    const colConfig = config.DKP_COLUMNS.find(c => c.column === auction.dkp_column);
+    const dkpLabel = colConfig?.label || 'Priority';
+    typeLabel = `DKP (${dkpLabel})`;
+  } else {
+    typeLabel = 'Gil (Highest Bid)';
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`Auction: ${auction.item_name}`)
@@ -23,6 +31,13 @@ export function auctionEmbed(auction: Auction): EmbedBuilder {
       value: auction.current_bid ? formatGil(auction.current_bid) : 'No bids yet',
       inline: true,
     });
+    if (auction.min_increment) {
+      embed.addFields({
+        name: 'Min Increment',
+        value: formatGil(auction.min_increment),
+        inline: true,
+      });
+    }
   }
 
   if (auction.image_url) {

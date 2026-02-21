@@ -5,15 +5,28 @@ import {
   type GuildMember, type TextChannel,
 } from 'discord.js';
 import * as db from '../db';
+import { config } from '../config';
 import { isOfficer } from '../utils/permissions';
 import { auctionEmbed } from '../utils/format';
 
-export const data = new SlashCommandBuilder()
+const builder = new SlashCommandBuilder()
   .setName('auction')
   .setDescription('Create a new auction')
   .addStringOption(opt =>
     opt.setName('type').setDescription('Auction type').setRequired(true)
       .addChoices({ name: 'DKP', value: 'dkp' }, { name: 'Gil', value: 'gil' }));
+
+if (config.DKP_COLUMNS.length > 1) {
+  builder.addStringOption(opt => {
+    opt.setName('dkp_column').setDescription('DKP column to use (DKP auctions only)').setRequired(false);
+    for (const col of config.DKP_COLUMNS) {
+      opt.addChoices({ name: col.label, value: col.column });
+    }
+    return opt;
+  });
+}
+
+export const data = builder;
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!isOfficer(interaction.member as GuildMember)) {
@@ -22,9 +35,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   const type = interaction.options.getString('type', true);
+  const dkpColumn = type === 'dkp'
+    ? (interaction.options.getString('dkp_column') || config.DKP_COLUMNS[0].column)
+    : null;
+
+  const customId = type === 'dkp' ? `auction_modal_dkp_${dkpColumn}` : 'auction_modal_gil';
 
   const modal = new ModalBuilder()
-    .setCustomId(`auction_modal_${type}`)
+    .setCustomId(customId)
     .setTitle(`Create ${type.toUpperCase()} Auction`);
 
   const itemInput = new TextInputBuilder()
@@ -53,6 +71,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setPlaceholder('e.g. 500000')
       .setRequired(true);
     rows.push(new ActionRowBuilder<TextInputBuilder>().addComponents(startingBidInput));
+
+    const minIncrementInput = new TextInputBuilder()
+      .setCustomId('min_increment')
+      .setLabel('Minimum Bid Increment (default: 5000)')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('5000')
+      .setRequired(false);
+    rows.push(new ActionRowBuilder<TextInputBuilder>().addComponents(minIncrementInput));
   }
 
   const imageInput = new TextInputBuilder()
@@ -67,7 +93,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 }
 
 export async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
-  const type = interaction.customId.replace('auction_modal_', '') as 'dkp' | 'gil';
+  const customId = interaction.customId;
+  let type: 'dkp' | 'gil';
+  let dkpColumn: string | null = null;
+  if (customId === 'auction_modal_gil') {
+    type = 'gil';
+  } else {
+    type = 'dkp';
+    // customId is auction_modal_dkp_<column>
+    dkpColumn = customId.slice('auction_modal_dkp_'.length) || config.DKP_COLUMNS[0].column;
+  }
   const itemName = interaction.fields.getTextInputValue('item_name').trim();
   const durationRaw = interaction.fields.getTextInputValue('duration').trim();
   const imageUrl = interaction.fields.getTextInputValue('image_url').trim() || null;
@@ -79,12 +114,24 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
   }
 
   let startingBid: number | null = null;
+  let minIncrement: number | null = null;
   if (type === 'gil') {
     const bidRaw = interaction.fields.getTextInputValue('starting_bid').trim();
     startingBid = parseInt(bidRaw.replace(/,/g, ''), 10);
     if (isNaN(startingBid) || startingBid <= 0) {
       await interaction.reply({ content: 'Starting bid must be a positive number.', ephemeral: true });
       return;
+    }
+
+    const incRaw = interaction.fields.getTextInputValue('min_increment').trim();
+    if (incRaw) {
+      minIncrement = parseInt(incRaw.replace(/,/g, ''), 10);
+      if (isNaN(minIncrement) || minIncrement < 1 || minIncrement > 100000) {
+        await interaction.reply({ content: 'Minimum increment must be between 1 and 100,000.', ephemeral: true });
+        return;
+      }
+    } else {
+      minIncrement = 5000;
     }
   }
 
@@ -115,6 +162,8 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
     current_bidder_id: null,
     duration_hours: durationHours,
     closes_at: closesAt,
+    dkp_column: dkpColumn,
+    min_increment: minIncrement,
   });
 
   const auction = db.getAuction(result.lastInsertRowid as number)!;
@@ -125,7 +174,7 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
 
   const instructions = type === 'dkp'
     ? 'Use `/bid` in this thread to register your interest. Winner determined by DKP priority.'
-    : `Use \`/bid amount:<number>\` in this thread to place a bid. Minimum bid: **${startingBid!.toLocaleString()} gil**.`;
+    : `Use \`/bid amount:<number>\` in this thread to place a bid. Minimum bid: **${startingBid!.toLocaleString()} gil**. Minimum increment: **${minIncrement!.toLocaleString()} gil**.`;
 
   await thread.send(instructions);
   await interaction.editReply(`Auction created: ${thread}`);

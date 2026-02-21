@@ -17,6 +17,8 @@ export interface Auction {
   winner_id: string | null;
   winner_name: string | null;
   winning_value: string | null;
+  dkp_column: string | null;
+  min_increment: number | null;
 }
 
 export interface Bid {
@@ -52,6 +54,8 @@ export interface CreateAuctionData {
   current_bidder_id: string | null;
   duration_hours: number;
   closes_at: string;
+  dkp_column: string | null;
+  min_increment: number | null;
 }
 
 export interface PlaceBidData {
