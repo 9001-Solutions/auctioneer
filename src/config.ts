@@ -10,7 +10,7 @@ function parseDkpColumns(raw: string): DkpColumn[] {
     const colonIdx = entry.indexOf(':');
     if (colonIdx === -1) {
       const col = entry.trim();
-      return { column: col, label: col };
+      return { column: col, label: 'DKP' };
     }
     const col = entry.slice(0, colonIdx).trim();
     const label = entry.slice(colonIdx + 1).trim() || col;

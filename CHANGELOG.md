@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 - 2026-02-21
+
+### Fixed
+- DKP bid confirmation now shows "DKP" instead of the column letter when no label is configured (e.g., `COLUMN_DKP=AG` no longer displays "665.06 AG").
+
 ## 1.1.0 - 2026-02-21
 
 ### Added
