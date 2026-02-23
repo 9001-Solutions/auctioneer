@@ -54,7 +54,7 @@ export async function fetchMembers(dkpColumn?: string): Promise<SheetMember[]> {
     return {
       name: (cols[COL_NAME] || '').trim(),
       status: (cols[COL_STATUS] || '').trim(),
-      dkp: parseFloat(cols[colDkp]) || 0,
+      dkp: parseFloat((cols[colDkp] || '').replace(/,/g, '')) || 0,
     };
   }).filter(m => m.name);
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 - 2026-02-23
+
+### Fixed
+- DKP values with thousands separators (e.g., "1,234") now parse correctly. Previously `parseFloat` stopped at the comma, causing values like 1,234 to display as 1.
+
 ## 1.1.1 - 2026-02-21
 
 ### Fixed
